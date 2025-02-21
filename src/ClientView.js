@@ -1,9 +1,11 @@
 'use client';
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 
 export default function ClientView({ clientVideo, setClientVideo, annotations }) {
   const videoRef = useRef(null);
+  const canvasRef = useRef(null); // Added canvas ref
   const [selectedAnnotation, setSelectedAnnotation] = useState(null);
+  const [videoPoster, setVideoPoster] = useState(null); // State for poster
 
   const handleVideoSubmit = (e) => {
     if (e.target.files.length > 0) {
@@ -13,18 +15,53 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
     }
   };
 
+  const captureFrame = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      // Set canvas dimensions to match the video frame
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      const dataURL = canvas.toDataURL("image/jpeg");
+      setVideoPoster(dataURL);
+    }
+  };
+
+  // When metadata is loaded, wait briefly then capture a frame
+  const handleLoadedData = () => {
+    // Wait a bit before seeking so the video has rendered something
+    setTimeout(() => {
+      if (videoRef.current) {
+        videoRef.current.currentTime = 2; // Seek to 2 seconds (adjust if needed)
+      }
+    }, 500);
+  };
+  
+  const handleSeeked = () => {
+    // Give a brief delay so the frame is rendered before capturing
+    setTimeout(() => {
+      captureFrame();
+    }, 200);
+  };
+  
+
+
+
   const handleAnnotationClick = (index) => {
     const ann = annotations[index];
     if (videoRef.current) {
       videoRef.current.currentTime = ann.timestamp;
+      // Play briefly to update the frame without forcing fullscreen.
       videoRef.current.play().then(() => {
         setTimeout(() => {
           videoRef.current.pause();
-        }, 100); // adjust delay as needed
+        }, 50); // Using a short delay
       });
     }
     setSelectedAnnotation(ann);
   };
+
 
 
   return (
@@ -45,14 +82,24 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
           <div className="video-container">
             <video
               ref={videoRef}
+              controls
               playsInline
               webkit-playsinline="true"
-              controls
-              width="600"
+              muted
+              className="client-video"
+              poster={videoPoster}
+              onLoadedData={handleLoadedData}  // Fires when enough data is available to start playback
+              onSeeked={handleSeeked}
             >
               <source src={clientVideo} type="video/mp4" />
               Your browser does not support HTML5 video.
             </video>
+
+            <canvas ref={canvasRef} style={{ display: 'none' }}></canvas>
+
+
+
+
 
             {selectedAnnotation && (
               <div className="media-detail">
@@ -119,6 +166,14 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
           text-align: center;
           margin-bottom: 20px;
         }
+          .client-video {
+  max-width: 50vw;
+  max-height: 33vh;
+  width: auto;
+  height: auto;
+  margin: 0 auto;
+  display: block;
+}
         .media-detail {
           display: flex;
           flex-direction: column;

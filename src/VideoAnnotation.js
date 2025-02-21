@@ -9,6 +9,30 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingText, setEditingText] = useState("");
   const [selectedAnnotation, setSelectedAnnotation] = useState(null);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [hasPlayed, setHasPlayed] = useState(false);
+
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) {
+      setDuration(videoRef.current.duration);
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      setProgress(videoRef.current.currentTime);
+    }
+  };
+
+  const handleProgressChange = (e) => {
+    const newTime = Number(e.target.value);
+    if (videoRef.current) {
+      videoRef.current.currentTime = newTime;
+    }
+    setProgress(newTime);
+  };
 
   const handleAddAnnotation = () => {
     if (videoRef.current && currentNote.trim() !== "") {
@@ -17,7 +41,6 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
       setAnnotations([...annotations, newAnnotation]);
       setCurrentNote("");
       setComparisonMedia(null);
-      // Clear file input so coach can upload new media for the next annotation
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
@@ -55,15 +78,39 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
     const ann = annotations[index];
     if (videoRef.current) {
       videoRef.current.currentTime = ann.timestamp;
+      // Play briefly to update the frame, then pause.
       videoRef.current.play().then(() => {
         setTimeout(() => {
           videoRef.current.pause();
-        }, 100); // adjust delay as needed
+        }, 100);
       });
     }
     setSelectedAnnotation(ann);
   };
-  
+
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      if (videoRef.current.requestFullscreen) {
+        videoRef.current.requestFullscreen();
+      } else if (videoRef.current.webkitRequestFullscreen) {
+        videoRef.current.webkitRequestFullscreen();
+      } else if (videoRef.current.mozRequestFullScreen) {
+        videoRef.current.mozRequestFullScreen();
+      } else if (videoRef.current.msRequestFullscreen) {
+        videoRef.current.msRequestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.mozCancelFullScreen) {
+        document.mozCancelFullScreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
+    }
+  };
 
   return (
     <div className="video-annotation-container">
@@ -73,15 +120,46 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
         <div className="video-container">
           <video
             ref={videoRef}
+            controls={false} // we use custom controls
             playsInline
             webkit-playsinline="true"
-            controls
-            width="600"
+            muted
+            className="client-video"
+            poster="/path/to/preview.jpg" // replace with your dynamic poster if needed
+            onLoadedMetadata={handleLoadedMetadata}
+            onTimeUpdate={handleTimeUpdate}
+            onPlay={() => { setIsPlaying(true); setHasPlayed(true); }}
+            onPause={() => setIsPlaying(false)}
           >
             <source src={clientVideo} type="video/mp4" />
             Your browser does not support HTML5 video.
           </video>
 
+          <div className="video-controls">
+            <button
+              onClick={() => {
+                if (videoRef.current.paused) {
+                  videoRef.current.play();
+                } else {
+                  videoRef.current.pause();
+                }
+              }}
+            >
+              {isPlaying ? "Pause" : "Play"}
+            </button>
+            {hasPlayed && (
+              <input
+                type="range"
+                min="0"
+                max={duration}
+                step="0.1"
+                value={progress}
+                onInput={handleProgressChange}
+                onChange={handleProgressChange}
+              />
+            )}
+            <button onClick={toggleFullScreen}>Fullscreen</button>
+          </div>
         </div>
       ) : (
         <p style={{ textAlign: 'center' }}>No client submissions yet.</p>
@@ -135,7 +213,6 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
                         <button onClick={() => handleDeleteAnnotation(index)}>Delete</button>
                       </>
                     )}
-                    {/* Display a small thumbnail if media was attached */}
                     {ann.media && (
                       <div className="attached-media">
                         <img src={ann.media} alt="Attached media" style={{ width: '80px', marginTop: '5px' }} />
@@ -164,6 +241,33 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
         .video-container {
           text-align: center;
           margin-bottom: 20px;
+        }
+        .client-video {
+          max-width: 50vw;
+          max-height: 33vh;
+          width: auto;
+          height: auto;
+          margin: 0 auto;
+          display: block;
+        }
+        .video-controls {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-top: 10px;
+          gap: 10px;
+        }
+        .video-controls button {
+          padding: 6px 12px;
+          font-size: 1rem;
+          background: #0070f3;
+          color: #fff;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+        .video-controls input[type="range"] {
+          width: 50%;
         }
         .annotation-controls {
           display: flex;
