@@ -1,26 +1,15 @@
 'use client';
 import React, { useRef, useState } from 'react';
 
-export default function VideoAnnotationMVP() {
+export default function VideoAnnotation({ clientVideo, annotations, setAnnotations }) {
   const videoRef = useRef(null);
-  const [videoSrc, setVideoSrc] = useState(null);
-  const [annotations, setAnnotations] = useState([]);
+  const fileInputRef = useRef(null);
   const [currentNote, setCurrentNote] = useState("");
   const [comparisonMedia, setComparisonMedia] = useState(null);
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingText, setEditingText] = useState("");
   const [selectedAnnotation, setSelectedAnnotation] = useState(null);
 
-  // Handle video file import
-  const handleVideoImport = (e) => {
-    if (e.target.files.length > 0) {
-      const file = e.target.files[0];
-      const url = URL.createObjectURL(file);
-      setVideoSrc(url);
-    }
-  };
-
-  // Handle adding a new annotation
   const handleAddAnnotation = () => {
     if (videoRef.current && currentNote.trim() !== "") {
       const timestamp = videoRef.current.currentTime;
@@ -28,10 +17,11 @@ export default function VideoAnnotationMVP() {
       setAnnotations([...annotations, newAnnotation]);
       setCurrentNote("");
       setComparisonMedia(null);
+      // Clear file input so coach can upload new media for the next annotation
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  // Handle file selection for comparison media (image/video)
   const handleFileChange = (e) => {
     if (e.target.files.length > 0) {
       const file = e.target.files[0];
@@ -40,13 +30,11 @@ export default function VideoAnnotationMVP() {
     }
   };
 
-  // Start editing an annotation
   const handleEditAnnotation = (index) => {
     setEditingIndex(index);
     setEditingText(annotations[index].note);
   };
 
-  // Save the edited annotation
   const handleSaveEdit = (index) => {
     const updatedAnnotations = [...annotations];
     updatedAnnotations[index].note = editingText;
@@ -55,7 +43,6 @@ export default function VideoAnnotationMVP() {
     setEditingText("");
   };
 
-  // Delete an annotation
   const handleDeleteAnnotation = (index) => {
     const updatedAnnotations = annotations.filter((_, i) => i !== index);
     setAnnotations(updatedAnnotations);
@@ -64,114 +51,103 @@ export default function VideoAnnotationMVP() {
     }
   };
 
-  // Handle clicking an annotation: jump the video and show its details
   const handleAnnotationClick = (index) => {
     const ann = annotations[index];
     if (videoRef.current) {
       videoRef.current.currentTime = ann.timestamp;
-      videoRef.current.pause(); // Keep the main video paused
+      videoRef.current.play().then(() => {
+        setTimeout(() => {
+          videoRef.current.pause();
+        }, 100); // adjust delay as needed
+      });
     }
     setSelectedAnnotation(ann);
   };
+  
 
   return (
     <div className="video-annotation-container">
-      <h2>Interactive Video Annotation Tool</h2>
-      
-      {/* Video Import */}
-      <div className="video-import">
-        <input type="file" accept="video/*" onChange={handleVideoImport} />
-      </div>
-      
-      {/* Media Section */}
-      <div className="media-section">
-        {selectedAnnotation && selectedAnnotation.media ? (
-          <div className="combined-media">
-            <div className="video-container">
-              {videoSrc ? (
-                <video ref={videoRef} controls width="300">
-                  <source src={videoSrc} type="video/mp4" />
-                  Your browser does not support HTML5 video.
-                </video>
-              ) : (
-                <p>No video selected.</p>
-              )}
-            </div>
-            <div className="comparison-media">
-              <img src={selectedAnnotation.media} alt="Comparison" className="detail-image" />
-            </div>
-          </div>
-        ) : (
-          <div className="video-container">
-            {videoSrc ? (
-              <video ref={videoRef} controls width="600">
-                <source src={videoSrc} type="video/mp4" />
-                Your browser does not support HTML5 video.
-              </video>
-            ) : (
-              <p>No video selected. Please import a video to get started.</p>
-            )}
-          </div>
-        )}
-      </div>
+      <h2>Coach Annotation Panel</h2>
 
-      {/* Annotation Notes (always shown when an annotation is selected) */}
-      {selectedAnnotation && (
-        <div className="annotation-notes">
-          <h3 className="detail-header">Annotation Details</h3>
-          <p className="detail-text"><strong>Time:</strong> {selectedAnnotation.timestamp.toFixed(2)}s</p>
-          <p className="detail-text"><strong>Note:</strong> {selectedAnnotation.note}</p>
+      {clientVideo ? (
+        <div className="video-container">
+          <video
+            ref={videoRef}
+            playsInline
+            webkit-playsinline="true"
+            controls
+            width="600"
+          >
+            <source src={clientVideo} type="video/mp4" />
+            Your browser does not support HTML5 video.
+          </video>
+
         </div>
+      ) : (
+        <p style={{ textAlign: 'center' }}>No client submissions yet.</p>
       )}
 
-      {/* Annotation Controls */}
-      <div className="annotation-controls">
-        <textarea
-          value={currentNote}
-          onChange={(e) => setCurrentNote(e.target.value)}
-          placeholder="Enter your annotation..."
-        ></textarea>
-        <input type="file" accept="image/*,video/*" onChange={handleFileChange} />
-        <button onClick={handleAddAnnotation}>Add Annotation</button>
-      </div>
+      {clientVideo && (
+        <>
+          <div className="annotation-controls">
+            <textarea
+              value={currentNote}
+              onChange={(e) => setCurrentNote(e.target.value)}
+              placeholder="Enter your annotation..."
+            ></textarea>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*"
+              onChange={handleFileChange}
+            />
+            <button onClick={handleAddAnnotation}>Add Annotation</button>
+          </div>
 
-      {/* Annotation List */}
-      <div className="annotation-list">
-        <h3>Annotations:</h3>
-        {annotations.length === 0 ? (
-          <p>No annotations added yet.</p>
-        ) : (
-          <ul>
-            {annotations.map((ann, index) => (
-              <li key={index}>
-                <span
-                  onClick={() => handleAnnotationClick(index)}
-                  style={{ cursor: 'pointer', color: 'blue', textDecoration: 'underline' }}
-                >
-                  <strong>{ann.timestamp.toFixed(2)}s</strong>
-                </span> – 
-                {editingIndex === index ? (
-                  <>
-                    <input
-                      type="text"
-                      value={editingText}
-                      onChange={(e) => setEditingText(e.target.value)}
-                    />
-                    <button onClick={() => handleSaveEdit(index)}>Save</button>
-                    <button onClick={() => setEditingIndex(null)}>Cancel</button>
-                  </>
-                ) : (
-                  <>
-                    {ann.note}{' '}
-                    <button onClick={() => handleEditAnnotation(index)}>Edit</button>
-                    <button onClick={() => handleDeleteAnnotation(index)}>Delete</button>
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+          <div className="annotation-list">
+            <h3>Annotations:</h3>
+            {annotations.length === 0 ? (
+              <p>No annotations added yet.</p>
+            ) : (
+              <ul>
+                {annotations.map((ann, index) => (
+                  <li key={index}>
+                    <span
+                      onClick={() => handleAnnotationClick(index)}
+                      style={{ cursor: 'pointer', color: 'blue', textDecoration: 'underline' }}
+                    >
+                      <strong>{ann.timestamp.toFixed(2)}s</strong>
+                    </span>
+                    {editingIndex === index ? (
+                      <>
+                        <input
+                          type="text"
+                          value={editingText}
+                          onChange={(e) => setEditingText(e.target.value)}
+                        />
+                        <button onClick={() => handleSaveEdit(index)}>Save</button>
+                        <button onClick={() => setEditingIndex(null)}>Cancel</button>
+                      </>
+                    ) : (
+                      <>
+                        <p>{ann.note}</p>
+                        <button onClick={() => handleEditAnnotation(index)}>Edit</button>
+                        <button onClick={() => handleDeleteAnnotation(index)}>Delete</button>
+                      </>
+                    )}
+                    {/* Display a small thumbnail if media was attached */}
+                    {ann.media && (
+                      <div className="attached-media">
+                        <img src={ann.media} alt="Attached media" style={{ width: '80px', marginTop: '5px' }} />
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
+      )}
 
       <style jsx>{`
         .video-annotation-container {
@@ -185,45 +161,9 @@ export default function VideoAnnotationMVP() {
           font-size: 1.5rem;
           margin-bottom: 10px;
         }
-        .video-import {
-          text-align: center;
-          margin-bottom: 10px;
-        }
-        /* Media Section */
-        .media-section {
-          margin-bottom: 20px;
-        }
-        .combined-media {
-          display: flex;
-          overflow-x: auto;
-          gap: 10px;
-          padding-bottom: 10px;
-        }
         .video-container {
-          flex: 0 0 auto;
-        }
-        .comparison-media {
-          flex: 0 0 auto;
-          width: 300px;
-        }
-        .detail-image {
-          width: 100%;
-          height: auto;
-          border: 1px solid #ddd;
-          border-radius: 8px;
-        }
-        .annotation-notes {
           text-align: center;
-          padding: 10px;
           margin-bottom: 20px;
-        }
-        .detail-header {
-          font-size: 1.2rem;
-          margin-bottom: 5px;
-        }
-        .detail-text {
-          font-size: 0.9rem;
-          margin: 3px 0;
         }
         .annotation-controls {
           display: flex;
@@ -267,6 +207,9 @@ export default function VideoAnnotationMVP() {
           display: flex;
           flex-direction: column;
           gap: 5px;
+        }
+        .attached-media {
+          margin-top: 5px;
         }
       `}</style>
     </div>
