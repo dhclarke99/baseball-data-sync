@@ -4,6 +4,7 @@ import React, { useRef, useState } from 'react';
 export default function VideoAnnotation({ clientVideo, annotations, setAnnotations }) {
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
+  const videoContainerRef = useRef(null); // For scrolling to the main video
   const [currentNote, setCurrentNote] = useState("");
   const [comparisonMedia, setComparisonMedia] = useState(null);
   const [editingIndex, setEditingIndex] = useState(null);
@@ -53,12 +54,15 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
     }
   };
 
-  const handleEditAnnotation = (index) => {
+  // For editing, we stop event propagation so the entire li click isn’t triggered.
+  const handleEditAnnotation = (index, e) => {
+    e.stopPropagation();
     setEditingIndex(index);
     setEditingText(annotations[index].note);
   };
 
-  const handleSaveEdit = (index) => {
+  const handleSaveEdit = (index, e) => {
+    e.stopPropagation();
     const updatedAnnotations = [...annotations];
     updatedAnnotations[index].note = editingText;
     setAnnotations(updatedAnnotations);
@@ -66,7 +70,8 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
     setEditingText("");
   };
 
-  const handleDeleteAnnotation = (index) => {
+  const handleDeleteAnnotation = (index, e) => {
+    e.stopPropagation();
     const updatedAnnotations = annotations.filter((_, i) => i !== index);
     setAnnotations(updatedAnnotations);
     if (selectedAnnotation && updatedAnnotations[index] === selectedAnnotation) {
@@ -74,11 +79,11 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
     }
   };
 
+  // When an annotation is clicked, update video time and scroll to the video.
   const handleAnnotationClick = (index) => {
-    const ann = annotations[index];
+    const ann = sortedAnnotations[index];
     if (videoRef.current) {
       videoRef.current.currentTime = ann.timestamp;
-      // Play briefly to update the frame, then pause.
       videoRef.current.play().then(() => {
         setTimeout(() => {
           videoRef.current.pause();
@@ -86,6 +91,9 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
       });
     }
     setSelectedAnnotation(ann);
+    if (videoContainerRef.current) {
+      videoContainerRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   const toggleFullScreen = () => {
@@ -112,20 +120,22 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
     }
   };
 
+  // Sort annotations by timestamp ascending.
+  const sortedAnnotations = [...annotations].sort((a, b) => a.timestamp - b.timestamp);
+
   return (
     <div className="video-annotation-container">
-      <h2>Coach Annotation Panel</h2>
-
+      <h2>Drill 1</h2>
       {clientVideo ? (
-        <div className="video-container">
+        <div className="video-container" ref={videoContainerRef}>
           <video
             ref={videoRef}
-            controls={false} // we use custom controls
+            controls={false} // using custom controls
             playsInline
             webkit-playsinline="true"
             muted
             className="client-video"
-            poster="/path/to/preview.jpg" // replace with your dynamic poster if needed
+            poster="/path/to/preview.jpg"
             onLoadedMetadata={handleLoadedMetadata}
             onTimeUpdate={handleTimeUpdate}
             onPlay={() => { setIsPlaying(true); setHasPlayed(true); }}
@@ -134,7 +144,6 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
             <source src={clientVideo} type="video/mp4" />
             Your browser does not support HTML5 video.
           </video>
-
           <div className="video-controls">
             <button
               onClick={() => {
@@ -181,38 +190,36 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
             />
             <button onClick={handleAddAnnotation}>Add Annotation</button>
           </div>
-
           <div className="annotation-list">
             <h3>Annotations:</h3>
-            {annotations.length === 0 ? (
+            {sortedAnnotations.length === 0 ? (
               <p>No annotations added yet.</p>
             ) : (
               <ul>
-                {annotations.map((ann, index) => (
-                  <li key={index}>
-                    <span
-                      onClick={() => handleAnnotationClick(index)}
-                      style={{ cursor: 'pointer', color: 'blue', textDecoration: 'underline' }}
-                    >
+                {sortedAnnotations.map((ann, index) => (
+                  <li key={index} onClick={() => handleAnnotationClick(index)}>
+                    <div className="annotation-content">
                       <strong>{ann.timestamp.toFixed(2)}s</strong>
-                    </span>
-                    {editingIndex === index ? (
-                      <>
-                        <input
-                          type="text"
-                          value={editingText}
-                          onChange={(e) => setEditingText(e.target.value)}
-                        />
-                        <button onClick={() => handleSaveEdit(index)}>Save</button>
-                        <button onClick={() => setEditingIndex(null)}>Cancel</button>
-                      </>
-                    ) : (
-                      <>
-                        <p>{ann.note}</p>
-                        <button onClick={() => handleEditAnnotation(index)}>Edit</button>
-                        <button onClick={() => handleDeleteAnnotation(index)}>Delete</button>
-                      </>
-                    )}
+                      <p>{ann.note}</p>
+                    </div>
+                    <div className="annotation-actions">
+                      {editingIndex === index ? (
+                        <>
+                          <input
+                            type="text"
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                          />
+                          <button onClick={(e) => handleSaveEdit(index, e)}>Save</button>
+                          <button onClick={(e) => setEditingIndex(null)}>Cancel</button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={(e) => handleEditAnnotation(index, e)}>Edit</button>
+                          <button onClick={(e) => handleDeleteAnnotation(index, e)}>Delete</button>
+                        </>
+                      )}
+                    </div>
                     {ann.media && (
                       <div className="attached-media">
                         <img src={ann.media} alt="Attached media" style={{ width: '80px', marginTop: '5px' }} />
@@ -225,7 +232,6 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
           </div>
         </>
       )}
-
       <style jsx>{`
         .video-annotation-container {
           max-width: 100%;
@@ -244,11 +250,12 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
         }
         .client-video {
           max-width: 50vw;
-          max-height: 33vh;
+          max-height: 45vh;
           width: auto;
           height: auto;
           margin: 0 auto;
           display: block;
+          border-radius: 20px;
         }
         .video-controls {
           display: flex;
@@ -306,10 +313,22 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
           padding: 0;
         }
         .annotation-list li {
-          padding: 10px;
-          border-bottom: 1px solid #ddd;
+          padding: 5px;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          margin-bottom: 5px;
+          cursor: pointer;
           display: flex;
           flex-direction: column;
+          gap: 5px;
+          background: #f9f9f9;
+        }
+        .annotation-content {
+          display: flex;
+          flex-direction: column;
+        }
+        .annotation-actions {
+          display: flex;
           gap: 5px;
         }
         .attached-media {

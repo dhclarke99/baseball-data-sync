@@ -1,11 +1,12 @@
 'use client';
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 
 export default function ClientView({ clientVideo, setClientVideo, annotations }) {
   const videoRef = useRef(null);
-  const canvasRef = useRef(null); // Added canvas ref
+  const canvasRef = useRef(null); // for capturing a poster image
+  const videoContainerRef = useRef(null); // for scrolling into view
   const [selectedAnnotation, setSelectedAnnotation] = useState(null);
-  const [videoPoster, setVideoPoster] = useState(null); // State for poster
+  const [videoPoster, setVideoPoster] = useState(null);
 
   const handleVideoSubmit = (e) => {
     if (e.target.files.length > 0) {
@@ -18,7 +19,6 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
   const captureFrame = () => {
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
-      // Set canvas dimensions to match the video frame
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
       const ctx = canvas.getContext("2d");
@@ -28,45 +28,43 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
     }
   };
 
-  // When metadata is loaded, wait briefly then capture a frame
   const handleLoadedData = () => {
-    // Wait a bit before seeking so the video has rendered something
     setTimeout(() => {
       if (videoRef.current) {
-        videoRef.current.currentTime = 2; // Seek to 2 seconds (adjust if needed)
+        videoRef.current.currentTime = 2;
       }
     }, 500);
   };
-  
+
   const handleSeeked = () => {
-    // Give a brief delay so the frame is rendered before capturing
     setTimeout(() => {
       captureFrame();
     }, 200);
   };
-  
-
-
 
   const handleAnnotationClick = (index) => {
-    const ann = annotations[index];
+    const sortedAnnotations = [...annotations].sort((a, b) => a.timestamp - b.timestamp);
+    const ann = sortedAnnotations[index];
     if (videoRef.current) {
       videoRef.current.currentTime = ann.timestamp;
-      // Play briefly to update the frame without forcing fullscreen.
+      // Play briefly to update the frame, then pause.
       videoRef.current.play().then(() => {
         setTimeout(() => {
           videoRef.current.pause();
-        }, 50); // Using a short delay
+        }, 50);
       });
     }
     setSelectedAnnotation(ann);
+    if (videoContainerRef.current) {
+      videoContainerRef.current.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
-
+  const sortedAnnotations = [...annotations].sort((a, b) => a.timestamp - b.timestamp);
 
   return (
     <div className="client-view-container">
-      <h2>Client Video Submission & Review</h2>
+      <h2>Drill 1</h2>
 
       {/* Video Submission */}
       {!clientVideo && (
@@ -79,7 +77,7 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
       {/* Video Display */}
       {clientVideo && (
         <>
-          <div className="video-container">
+          <div className="video-media-container" ref={videoContainerRef}>
             <video
               ref={videoRef}
               controls
@@ -88,54 +86,50 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
               muted
               className="client-video"
               poster={videoPoster}
-              onLoadedData={handleLoadedData}  // Fires when enough data is available to start playback
+              onLoadedData={handleLoadedData}
               onSeeked={handleSeeked}
             >
               <source src={clientVideo} type="video/mp4" />
               Your browser does not support HTML5 video.
             </video>
-
-            <canvas ref={canvasRef} style={{ display: 'none' }}></canvas>
-
-
-
-
-
-            {selectedAnnotation && (
-              <div className="media-detail">
-                <div className="annotation-notes">
-                  <p><strong>Note:</strong> {selectedAnnotation.note}</p>
-                </div>
-                {selectedAnnotation.media && (
-                  <img src={selectedAnnotation.media} alt="Detailed attached media" style={{ width: '300px' }} />
-                )}
-
+            {/* If an annotation is selected and has attached media, show it to the right */}
+            {selectedAnnotation && selectedAnnotation.media && (
+              <div className="annotation-media">
+                <img
+                  src={selectedAnnotation.media}
+                  alt="Attached media"
+                />
               </div>
             )}
           </div>
 
-          {/* Detailed view for selected annotation (if any) */}
+          {/* Annotation notes remain below the main video */}
+          {selectedAnnotation && (
+            <div className="annotation-notes">
+              <p><strong>Note:</strong> {selectedAnnotation.note}</p>
+            </div>
+          )}
 
-
-          {/* Coach's Annotations (read-only) */}
+          {/* Annotations List */}
           <div className="annotation-list">
-            <h3>Coach's Annotations:</h3>
-            {annotations.length === 0 ? (
+            <h3>Coach's Feedback:</h3>
+            {sortedAnnotations.length === 0 ? (
               <p>No annotations available.</p>
             ) : (
               <ul>
-                {annotations.map((ann, index) => (
-                  <li key={index}>
-                    <span
-                      onClick={() => handleAnnotationClick(index)}
-                      style={{ cursor: 'pointer', color: 'blue', textDecoration: 'underline' }}
-                    >
-                      {ann.timestamp.toFixed(2)}s
-                    </span>
-                    <p>{ann.note}</p>
+                {sortedAnnotations.map((ann, index) => (
+                  <li key={index} onClick={() => handleAnnotationClick(index)}>
+                    <div className="annotation-content">
+                      <strong>{ann.timestamp.toFixed(2)}s</strong>
+                    
+                    </div>
                     {ann.media && (
                       <div className="attached-media">
-                        <img src={ann.media} alt="Attached media" style={{ width: '80px', marginTop: '5px' }} />
+                        <img
+                          src={ann.media}
+                          alt="Attached media"
+                          style={{ width: '80px', marginTop: '5px' }}
+                        />
                       </div>
                     )}
                   </li>
@@ -143,6 +137,9 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
               </ul>
             )}
           </div>
+
+          {/* Hidden canvas for capturing a poster image */}
+          <canvas ref={canvasRef} style={{ display: 'none' }}></canvas>
         </>
       )}
 
@@ -162,47 +159,65 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
           text-align: center;
           margin-bottom: 20px;
         }
-        .video-container {
+        .video-media-container {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          overflow-x: auto;
+          margin-bottom: 10px;
+        }
+        .client-video {
+          max-width: 50vw;
+          max-height: 33vh;
+          width: auto;
+          height: auto;
+          display: block;
+          border-radius: 20px;
+        }
+        .annotation-media {
+  flex: 0 0 auto;
+  max-width: 50vw;   /* slightly smaller width */
+  max-height: 40vh;  /* increased height for a vertical rectangle */
+  margin-left: 10px;
+}
+
+.annotation-media img {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+        .annotation-notes {
           text-align: center;
           margin-bottom: 20px;
         }
-          .client-video {
-  max-width: 50vw;
-  max-height: 33vh;
-  width: auto;
-  height: auto;
-  margin: 0 auto;
-  display: block;
-}
-        .media-detail {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-        
-          
-        }
-        .annotation-notes {
-          text-align: center;
-          margin-top: 10px;
-        }
-        .annotation-notes h3 {
-          font-size: 1.2rem;
-          margin-bottom: 5px;
-        }
         .annotation-notes p {
-          font-size: 0.9rem;
-          margin: 3px 0;
+          font-size: 1rem;
+        }
+        .annotation-list {
+          margin-top: 20px;
         }
         .annotation-list ul {
-          list-style-type: none;
+          list-style: none;
           padding: 0;
         }
         .annotation-list li {
-          padding: 10px;
-          border-bottom: 1px solid #ddd;
+          padding: 5px;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          margin-bottom: 5px;
+          cursor: pointer;
+          background: #f9f9f9;
           display: flex;
           flex-direction: column;
           gap: 5px;
+        }
+        .annotation-content {
+          display: flex;
+          flex-direction: column;
         }
         .attached-media {
           margin-top: 5px;
