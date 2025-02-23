@@ -64,15 +64,30 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
 
   return (
     <div className="client-view-container">
-      <h2>Drill 1</h2>
+      <h2>Your Drills</h2>
 
       {/* Video Submission */}
-      {!clientVideo && (
-        <div className="video-submission">
-          <input type="file" accept="video/*" onChange={handleVideoSubmit} />
-          <p>Please submit a video.</p>
-        </div>
-      )}
+{!clientVideo && (
+  <div className="video-submission">
+    <img className="upload-video-logo" src="./Images/upload_drill_logo.jpg" alt="na" />
+    <p>Upload your drill video here</p>
+    {/* Hidden file input */}
+    <input
+      id="video-upload-input"
+      type="file"
+      accept="video/*"
+      onChange={handleVideoSubmit}
+      style={{ display: 'none' }}
+    />
+    <button
+      className="upload-video-btn"
+      onClick={() => document.getElementById('video-upload-input').click()}
+    >
+      Start Drill
+    </button>
+  </div>
+)}
+
 
       {/* Video Display */}
       {clientVideo && (
@@ -147,7 +162,7 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
         .client-view-container {
           max-width: 900px;
           margin: 0 auto;
-          padding: 10px;
+          padding: 25px;
           font-family: Arial, sans-serif;
         }
         h2 {
@@ -155,6 +170,22 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
           font-size: 1.5rem;
           margin-bottom: 10px;
         }
+          .upload-video-logo {
+          max-width: 20vw;
+
+          }
+          .upload-video-logo, p {
+          font-size: 12px;
+          color: grey;
+          }
+          .upload-video-btn {
+          padding: 20px;
+          width: 100%;
+          background: #1273EB;
+          color: white;
+          border-radius: 20px;
+          font-size: 16px;
+          }
         .video-submission {
           text-align: center;
           margin-bottom: 20px;
