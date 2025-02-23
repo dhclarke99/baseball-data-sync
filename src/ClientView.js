@@ -129,13 +129,13 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
           <div className="annotation-list">
             <h3>Coach's Feedback:</h3>
             {sortedAnnotations.length === 0 ? (
-              <p>No annotations available.</p>
+              <p>No feedback yet.</p>
             ) : (
               <ul>
                 {sortedAnnotations.map((ann, index) => (
                   <li key={index} onClick={() => handleAnnotationClick(index)}>
                     <div className="annotation-content">
-                      <strong>{ann.timestamp.toFixed(2)}s</strong>
+                      <strong>{ann.title}</strong>
                     
                     </div>
                     {ann.media && (
@@ -166,7 +166,7 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
           font-family: Arial, sans-serif;
         }
         h2 {
-          text-align: center;
+          text-align: left;
           font-size: 1.5rem;
           margin-bottom: 10px;
         }
@@ -174,7 +174,7 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
           max-width: 20vw;
 
           }
-          .upload-video-logo, p {
+          .video-submission p {
           font-size: 12px;
           color: grey;
           }

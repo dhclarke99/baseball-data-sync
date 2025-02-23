@@ -6,9 +6,12 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
   const fileInputRef = useRef(null);
   const videoContainerRef = useRef(null); // For scrolling to the main video
   const [currentNote, setCurrentNote] = useState("");
+  const [noteTitle, setNoteTitle] = useState("");
   const [comparisonMedia, setComparisonMedia] = useState(null);
   const [editingIndex, setEditingIndex] = useState(null);
-  const [editingText, setEditingText] = useState("");
+  const [editingTitle, setEditingTitle] = useState("");
+  const [editingNote, setEditingNote] = useState("");
+  const [editingMedia, setEditingMedia] = useState(null);
   const [selectedAnnotation, setSelectedAnnotation] = useState(null);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -36,13 +39,16 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
   };
 
   const handleAddAnnotation = () => {
-    if (videoRef.current && currentNote.trim() !== "") {
+    if (videoRef.current && currentNote.trim() !== "" && noteTitle.trim() !== "") {
       const timestamp = videoRef.current.currentTime;
-      const newAnnotation = { timestamp, note: currentNote, media: comparisonMedia };
+      const newAnnotation = { timestamp, title: noteTitle, note: currentNote, media: comparisonMedia };
       setAnnotations([...annotations, newAnnotation]);
+      setNoteTitle("");
       setCurrentNote("");
       setComparisonMedia(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    } else {
+      window.alert("Missing fields");
     }
   };
 
@@ -54,20 +60,30 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
     }
   };
 
-  // For editing, we stop event propagation so the entire li click isn’t triggered.
+  // For editing an existing annotation:
   const handleEditAnnotation = (index, e) => {
     e.stopPropagation();
     setEditingIndex(index);
-    setEditingText(annotations[index].note);
+    const ann = annotations[index];
+    setEditingTitle(ann.title);
+    setEditingNote(ann.note);
+    setEditingMedia(ann.media);
   };
 
   const handleSaveEdit = (index, e) => {
     e.stopPropagation();
     const updatedAnnotations = [...annotations];
-    updatedAnnotations[index].note = editingText;
+    updatedAnnotations[index] = {
+      ...updatedAnnotations[index],
+      title: editingTitle,
+      note: editingNote,
+      media: editingMedia,
+    };
     setAnnotations(updatedAnnotations);
     setEditingIndex(null);
-    setEditingText("");
+    setEditingTitle("");
+    setEditingNote("");
+    setEditingMedia(null);
   };
 
   const handleDeleteAnnotation = (index, e) => {
@@ -79,8 +95,17 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
     }
   };
 
-  // When an annotation is clicked, update video time and scroll to the video.
+  // Update media during editing via a file input.
+  const handleEditMediaChange = (e) => {
+    if (e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const url = URL.createObjectURL(file);
+      setEditingMedia(url);
+    }
+  };
+
   const handleAnnotationClick = (index) => {
+    const sortedAnnotations = [...annotations].sort((a, b) => a.timestamp - b.timestamp);
     const ann = sortedAnnotations[index];
     if (videoRef.current) {
       videoRef.current.currentTime = ann.timestamp;
@@ -178,9 +203,16 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
         <>
           <div className="annotation-controls">
             <textarea
+              className="title-input"
+              value={noteTitle}
+              onChange={(e) => setNoteTitle(e.target.value)}
+              placeholder="Title your feedback..."
+            ></textarea>
+            <textarea
+              className="feedback-input"
               value={currentNote}
               onChange={(e) => setCurrentNote(e.target.value)}
-              placeholder="Enter your annotation..."
+              placeholder="Enter your feedback..."
             ></textarea>
             <input
               ref={fileInputRef}
@@ -188,27 +220,48 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
               accept="image/*,video/*"
               onChange={handleFileChange}
             />
-            <button onClick={handleAddAnnotation}>Add Annotation</button>
+            <button onClick={handleAddAnnotation}>Add Feedback</button>
           </div>
           <div className="annotation-list">
-            <h3>Annotations:</h3>
+            <h3>Feedback:</h3>
             {sortedAnnotations.length === 0 ? (
-              <p>No annotations added yet.</p>
+              <p>No feedback added yet.</p>
             ) : (
               <ul>
                 {sortedAnnotations.map((ann, index) => (
                   <li key={index} onClick={() => handleAnnotationClick(index)}>
                     <div className="annotation-content">
                       <strong>{ann.timestamp.toFixed(2)}s</strong>
+                      <strong>{ann.title}</strong>
                       <p>{ann.note}</p>
-                    </div>
+                      {ann.media && (
+                      <div className="attached-media">
+                        <img
+                          src={ann.media}
+                          alt="Attached media"
+                          style={{ width: '80px', marginTop: '5px' }}
+                        />
+                      </div>
+                    )}
                     <div className="annotation-actions">
+                    
                       {editingIndex === index ? (
                         <>
                           <input
                             type="text"
-                            value={editingText}
-                            onChange={(e) => setEditingText(e.target.value)}
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            placeholder="Edit title"
+                          />
+                          <textarea
+                            value={editingNote}
+                            onChange={(e) => setEditingNote(e.target.value)}
+                            placeholder="Edit feedback"
+                          ></textarea>
+                          <input
+                            type="file"
+                            accept="image/*,video/*"
+                            onChange={handleEditMediaChange}
                           />
                           <button onClick={(e) => handleSaveEdit(index, e)}>Save</button>
                           <button onClick={(e) => setEditingIndex(null)}>Cancel</button>
@@ -220,11 +273,7 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
                         </>
                       )}
                     </div>
-                    {ann.media && (
-                      <div className="attached-media">
-                        <img src={ann.media} alt="Attached media" style={{ width: '80px', marginTop: '5px' }} />
-                      </div>
-                    )}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -232,6 +281,7 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
           </div>
         </>
       )}
+
       <style jsx>{`
         .video-annotation-container {
           max-width: 100%;
@@ -282,7 +332,15 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
           gap: 10px;
           margin-bottom: 20px;
         }
-        textarea {
+        .title-input {
+          width: 100%;
+          height: 40px;
+          padding: 10px;
+          font-size: 1rem;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+        }
+        .feedback-input {
           width: 100%;
           height: 80px;
           padding: 10px;
@@ -308,8 +366,14 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
         button:hover {
           background: #005bb5;
         }
+        .annotation-list {
+          margin-top: 20px;
+        }
+        .annotation-list h3 {
+          margin-bottom: 10px;
+        }
         .annotation-list ul {
-          list-style-type: none;
+          list-style: none;
           padding: 0;
         }
         .annotation-list li {
@@ -318,10 +382,10 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
           border-radius: 4px;
           margin-bottom: 5px;
           cursor: pointer;
+          background: #f9f9f9;
           display: flex;
           flex-direction: column;
           gap: 5px;
-          background: #f9f9f9;
         }
         .annotation-content {
           display: flex;
