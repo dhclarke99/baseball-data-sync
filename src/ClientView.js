@@ -67,26 +67,26 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
       <h2>Your Drills</h2>
 
       {/* Video Submission */}
-{!clientVideo && (
-  <div className="video-submission">
-    <img className="upload-video-logo" src="./Images/upload_drill_logo.jpg" alt="na" />
-    <p>Upload your drill video here</p>
-    {/* Hidden file input */}
-    <input
-      id="video-upload-input"
-      type="file"
-      accept="video/*"
-      onChange={handleVideoSubmit}
-      style={{ display: 'none' }}
-    />
-    <button
-      className="upload-video-btn"
-      onClick={() => document.getElementById('video-upload-input').click()}
-    >
-      Start Drill
-    </button>
-  </div>
-)}
+      {!clientVideo && (
+        <div className="video-submission">
+          <img className="upload-video-logo" src="./Images/upload_drill_logo.jpg" alt="na" />
+          <p>Upload your drill video here</p>
+          {/* Hidden file input */}
+          <input
+            id="video-upload-input"
+            type="file"
+            accept="video/*"
+            onChange={handleVideoSubmit}
+            style={{ display: 'none' }}
+          />
+          <button
+            className="upload-video-btn"
+            onClick={() => document.getElementById('video-upload-input').click()}
+          >
+            Start Drill
+          </button>
+        </div>
+      )}
 
 
       {/* Video Display */}
@@ -136,7 +136,7 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
                   <li key={index} onClick={() => handleAnnotationClick(index)}>
                     <div className="annotation-content">
                       <strong>{ann.title}</strong>
-                    
+
                     </div>
                     {ann.media && (
                       <div className="attached-media">
@@ -236,15 +236,18 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
           padding: 0;
         }
         .annotation-list li {
-          padding: 5px;
-          border: 1px solid #ccc;
-          border-radius: 4px;
-          margin-bottom: 5px;
-          cursor: pointer;
-          background: #f9f9f9;
-          display: flex;
-          flex-direction: column;
-          gap: 5px;
+          padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 12px;
+    margin-bottom: 5px;
+    cursor: pointer;
+    background: #1273EB;
+    display: flex
+;
+    flex-direction: row;
+    gap: 5px;
+    align-items: center;
+    justify-content: space-between;
         }
         .annotation-content {
           display: flex;
