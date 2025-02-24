@@ -141,9 +141,9 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
                     {ann.media && (
                       <div className="attached-media">
                         <img
-                          src={ann.media}
+                          src="./Images/camera_logo.png"
                           alt="Attached media"
-                          style={{ width: '80px', marginTop: '5px' }}
+                          style={{ width: '20px', marginTop: '5px' }}
                         />
                       </div>
                     )}
