@@ -252,6 +252,7 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
         .annotation-content {
           display: flex;
           flex-direction: column;
+          color: white;
         }
         .attached-media {
           margin-top: 5px;
