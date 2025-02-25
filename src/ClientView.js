@@ -280,6 +280,7 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
           margin: 0 auto;
           padding: 25px;
           font-family: Arial, sans-serif;
+          border-top: 1px solid #b4d0df;
     //       display: flex;
     // flex-direction: column;
     // align-items: flex-start;
