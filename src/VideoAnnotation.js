@@ -152,7 +152,9 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
   
 
   // Sort annotations by timestamp ascending.
-  const sortedAnnotations = [...annotations].sort((a, b) => a.timestamp - b.timestamp);
+  const sortedAnnotations = annotations
+  .map((ann, index) => ({ ...ann, originalIndex: index }))
+  .sort((a, b) => a.timestamp - b.timestamp);
 
   return (
     <div className="video-annotation-container">
@@ -243,56 +245,65 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
           <p>No feedback added yet.</p>
         ) : (
           <ul>
-            {sortedAnnotations.map((ann, index) => (
-              <li key={index} onClick={() => handleAnnotationClick(index)}>
-                <div className="annotation-content">
-                  <div className="annotation-header">
-                  <strong>{ann.title}</strong>
-                  <strong>{ann.timestamp.toFixed(2)}s</strong>
-                  </div>
-                 
-                  <p>{ann.note}</p>
-                  {ann.media && (
-                    <div className="attached-media">
-                      <img
-                        src={ann.media}
-                        alt="Attached media"
-                        style={{ width: '80px', marginTop: '5px' }}
-                      />
-                    </div>
-                  )}
-                  <div className="annotation-actions">
-                    {editingIndex === index ? (
-                      <>
-                        <input
-                          type="text"
-                          value={editingTitle}
-                          onChange={(e) => setEditingTitle(e.target.value)}
-                          placeholder="Edit title"
-                        />
-                        <textarea
-                          value={editingNote}
-                          onChange={(e) => setEditingNote(e.target.value)}
-                          placeholder="Edit feedback"
-                        ></textarea>
-                        <input
-                          type="file"
-                          accept="image/*,video/*"
-                          onChange={handleEditMediaChange}
-                        />
-                        <button onClick={(e) => handleSaveEdit(index, e)}>Save</button>
-                        <button onClick={(e) => setEditingIndex(null)}>Cancel</button>
-                      </>
-                    ) : (
-                      <>
-                        <button onClick={(e) => handleEditAnnotation(index, e)}>Edit</button>
-                        <button onClick={(e) => handleDeleteAnnotation(index, e)}>Delete</button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </li>
-            ))}
+          {sortedAnnotations.map((ann) => (
+  <li key={ann.originalIndex} onClick={() => handleAnnotationClick(ann.originalIndex)}>
+    <div className="annotation-content">
+      <div className="annotation-header">
+        {editingIndex === ann.originalIndex ? (
+          <input 
+            type="text" 
+            className="annotation-edit-title"
+            value={editingTitle}
+            onChange={(e) => setEditingTitle(e.target.value)}
+            placeholder="Edit title"
+          />
+        ) : (
+          <strong>{ann.title}</strong>
+        )}
+        <strong>{ann.timestamp.toFixed(2)}s</strong>
+      </div>
+      {editingIndex === ann.originalIndex ? (
+        <textarea 
+          className="annotation-edit-note"
+          value={editingNote}
+          onChange={(e) => setEditingNote(e.target.value)}
+          placeholder="Edit feedback"
+        ></textarea>
+      ) : (
+        <p>{ann.note}</p>
+      )}
+      {editingIndex !== ann.originalIndex && ann.media && (
+        <div className="attached-media">
+          <img
+            src={ann.media}
+            alt="Attached media"
+            style={{ width: '80px', marginTop: '5px' }}
+          />
+        </div>
+      )}
+      <div className="annotation-actions">
+        {editingIndex === ann.originalIndex ? (
+          <>
+            <input
+              type="file"
+              accept="image/*,video/*"
+              onChange={handleEditMediaChange}
+            />
+            <button onClick={(e) => handleSaveEdit(ann.originalIndex, e)}>Save</button>
+            <button onClick={(e) => setEditingIndex(null)}>Cancel</button>
+          </>
+        ) : (
+          <>
+            <button onClick={(e) => handleEditAnnotation(ann.originalIndex, e)}>Edit</button>
+            <button onClick={(e) => handleDeleteAnnotation(ann.originalIndex, e)}>Delete</button>
+          </>
+        )}
+      </div>
+    </div>
+  </li>
+))}
+
+
           </ul>
         )}
       </div>
@@ -364,6 +375,23 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
 
   flex: 1;
         }
+  .annotation-edit-title {
+  width: 100%;
+  font-size: 1rem;
+  padding: 8px;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+}
+
+.annotation-edit-note {
+  width: 100%;
+  height: 80px;
+  font-size: 1rem;
+  padding: 8px;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+}
+
         .title-input {
           height: 5vh;
           padding: 10px;
@@ -433,6 +461,11 @@ margin-bottom: 5px;
           cursor: pointer;
           transition: background-color 0.3s;
         }
+          .annotation-list li input[type="text"],
+.annotation-list li textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
         .annotation-list li:hover {
           background: #f1f1f1;
         }
@@ -447,10 +480,11 @@ margin-bottom: 5px;
           justify-content: space-between;
         }
         .annotation-actions {
-          display: flex;
-          gap: 8px;
-      
-        }
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
         .annotation-actions button {
           padding: 6px 12px;
           font-size: 0.9rem;
