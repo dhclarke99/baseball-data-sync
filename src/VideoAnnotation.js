@@ -180,8 +180,9 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
                   }
                 }}
               >
-                {isPlaying ? "Pause" : "Play"}
+                {isPlaying ? "⏸" : "▶️"}
               </button>
+
               {hasPlayed && (
                 <input
                   type="range"
@@ -193,7 +194,8 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
                   onChange={handleProgressChange}
                 />
               )}
-              <button onClick={toggleFullScreen}>Fullscreen</button>
+              <button onClick={toggleFullScreen}>⛶</button>
+
             </div>
           </div>
         ) : (
@@ -215,16 +217,16 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
               placeholder="Enter your feedback..."
             ></textarea>
             <input
-  ref={fileInputRef}
-  id="fileInput"
-  type="file"
-  accept="image/*,video/*"
-  onChange={handleFileChange}
-  style={{ display: 'none' }}
-/>
-<label htmlFor="fileInput" className="file-upload-label">
-  📎
-</label>
+              ref={fileInputRef}
+              id="fileInput"
+              type="file"
+              accept="image/*,video/*"
+              onChange={handleFileChange}
+              style={{ display: 'none' }}
+            />
+            <label htmlFor="fileInput" className="file-upload-label">
+              📎
+            </label>
             <button onClick={handleAddAnnotation}>Add Feedback</button>
           </div>
         )}
@@ -291,10 +293,10 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
           max-width: 100%;
           margin: 0 auto;
           padding: 20px;
-          font-family: 'Helvetica Neue', sans-serif;
-          background: #f7f7f7;
-          border: 1px solid #e0e0e0;
-          border-radius: 10px;
+          font-family: Inter, sans-serif;
+        background:  #ffffff;
+          border: 1px solid #b4d0df;
+     
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         h2 {
@@ -304,6 +306,7 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
           color: #333;
         }
         .new-annotation {
+        font-family: Inter, sans-serif;
           display: flex;
           flex-direction: row;
           gap: 20px;
@@ -330,8 +333,57 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
           margin-top: 10px;
           gap: 15px;
         }
-        .video-controls button {
-          padding: 8px 16px;
+        .video-controls button {       
+          font-size: 1rem;
+          border: none; 
+          cursor: pointer;
+          background: none;    
+        }
+        
+        .video-controls input[type="range"] {
+          width: 60%;
+        }
+        .annotation-controls {
+        box-sizing: border-box;
+  /* existing properties */
+  display: flex;
+  flex-direction: column;
+  padding: 15px;
+
+ 
+  border-radius: 8px;
+
+  flex: 1;
+        }
+        .title-input {
+          height: 5vh;
+          padding: 10px;
+        
+          font-size: 1rem;
+           border: none;
+  border-top: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+  resize: none;
+
+          font-family: Inter, sans-serif;
+        }
+        .feedback-input {
+          height: 5vh;
+          font-family: Inter, sans-serif;
+          padding: 10px;
+          font-size: 1rem;
+           border: none;
+  border-bottom: 1px solid #ccc;
+  resize: none;
+margin-bottom: 5px;
+       
+        }
+        input[type="file"] {
+          font-size: 1rem;
+          
+        }
+        .annotation-controls button {
+          padding: 10px 20px;
           font-size: 1rem;
           background: #0070f3;
           color: #fff;
@@ -339,63 +391,20 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
           border-radius: 6px;
           cursor: pointer;
           transition: background-color 0.3s;
-        }
-        .video-controls button:hover {
-          background: #005bb5;
-        }
-        .video-controls input[type="range"] {
-          width: 60%;
-        }
-        .annotation-controls {
-          display: flex;
-          flex-direction: column;
-          gap: 15px;
-          padding: 15px;
-          background: #fff;
-          border: 1px solid #ddd;
-          border-radius: 8px;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-          flex: 1;
-        }
-        .title-input {
-          height: 3vh;
-          padding: 10px;
-          font-size: 1rem;
-          border: 1px solid #ccc;
-          border-radius: 6px;
-        }
-        .feedback-input {
-          height: 10vh;
-          padding: 10px;
-          font-size: 1rem;
-          border: 1px solid #ccc;
-          border-radius: 6px;
-          resize: vertical;
-        }
-        input[type="file"] {
-          font-size: 1rem;
-        }
-        .annotation-controls button {
-          padding: 10px 20px;
-          font-size: 1rem;
-          background: #28a745;
-          color: #fff;
-          border: none;
-          border-radius: 6px;
-          cursor: pointer;
-          transition: background-color 0.3s;
           align-self: flex-start;
+          margin-top: 5px;
+      
         }
         .annotation-controls button:hover {
-          background: #218838;
+          background: #005bb5;
         }
         .annotation-list {
+        font-family: Inter, sans-serif;
           margin-top: 20px;
-          background: #fff;
+          
           padding: 15px;
-          border: 1px solid #ddd;
-          border-radius: 8px;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    
+      
         }
         .annotation-list h3 {
           margin-bottom: 15px;
