@@ -7,6 +7,10 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
   const videoContainerRef = useRef(null); // for scrolling into view
   const [selectedAnnotation, setSelectedAnnotation] = useState(null);
   const [videoPoster, setVideoPoster] = useState(null);
+   const [isPlaying, setIsPlaying] = useState(false);
+    const [hasPlayed, setHasPlayed] = useState(false);
+      const [progress, setProgress] = useState(0);
+      const [duration, setDuration] = useState(0);
 
   const handleVideoSubmit = (e) => {
     if (e.target.files.length > 0) {
@@ -41,6 +45,56 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
       captureFrame();
     }, 200);
   };
+
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) {
+      setDuration(videoRef.current.duration);
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      setProgress(videoRef.current.currentTime);
+    }
+  };
+
+  const handleProgressChange = (e) => {
+    const newTime = Number(e.target.value);
+    if (videoRef.current) {
+      videoRef.current.currentTime = newTime;
+    }
+    setProgress(newTime);
+  };
+
+  const toggleFullScreen = () => {
+    if (videoRef.current) {
+      // For iOS Safari, use webkitEnterFullscreen if available.
+      if (videoRef.current.webkitEnterFullscreen) {
+        videoRef.current.webkitEnterFullscreen();
+      } else if (!document.fullscreenElement) {
+        if (videoRef.current.requestFullscreen) {
+          videoRef.current.requestFullscreen();
+        } else if (videoRef.current.webkitRequestFullscreen) {
+          videoRef.current.webkitRequestFullscreen();
+        } else if (videoRef.current.mozRequestFullScreen) {
+          videoRef.current.mozRequestFullScreen();
+        } else if (videoRef.current.msRequestFullscreen) {
+          videoRef.current.msRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        } else if (document.mozCancelFullScreen) {
+          document.mozCancelFullScreen();
+        } else if (document.msExitFullscreen) {
+          document.msExitFullscreen();
+        }
+      }
+    }
+  };
+  
 
   const handleAnnotationClick = (index) => {
     const sortedAnnotations = [...annotations].sort((a, b) => a.timestamp - b.timestamp);
@@ -93,9 +147,10 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
       {clientVideo && (
         <>
           <div className="video-media-container" ref={videoContainerRef}>
+            <div className="video-container">
             <video
               ref={videoRef}
-              controls
+              controls={false}
               playsInline
               webkit-playsinline="true"
               muted
@@ -103,10 +158,41 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
               poster={videoPoster}
               onLoadedData={handleLoadedData}
               onSeeked={handleSeeked}
+              onLoadedMetadata={handleLoadedMetadata}
+              onTimeUpdate={handleTimeUpdate}
+              onPlay={() => { setIsPlaying(true); setHasPlayed(true); }}
+              onPause={() => setIsPlaying(false)}
             >
               <source src={clientVideo} type="video/mp4" />
               Your browser does not support HTML5 video.
             </video>
+            <div className="video-controls">
+              <button
+                onClick={() => {
+                  if (videoRef.current.paused) {
+                    videoRef.current.play();
+                  } else {
+                    videoRef.current.pause();
+                  }
+                }}
+              >
+                {isPlaying ? "⏸" : "▶"}
+              </button>
+
+              {hasPlayed && (
+                <input
+                  type="range"
+                  min="0"
+                  max={duration}
+                  step="0.1"
+                  value={progress}
+                  onInput={handleProgressChange}
+                  onChange={handleProgressChange}
+                />
+              )}
+              <button onClick={toggleFullScreen}>⛶</button>
+              </div>
+            </div>
             {/* If an annotation is selected and has attached media, show it to the right */}
             {selectedAnnotation && selectedAnnotation.media && (
               <div className="annotation-media">
@@ -164,6 +250,9 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
           margin: 0 auto;
           padding: 25px;
           font-family: Arial, sans-serif;
+    //       display: flex;
+    // flex-direction: column;
+    // align-items: flex-start;
         }
         h2 {
           text-align: left;
@@ -192,25 +281,46 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
         }
         .video-media-container {
           display: flex;
-          align-items: center;
-          justify-content: center;
+          justify-content: left;
           gap: 10px;
           overflow-x: auto;
           margin-bottom: 10px;
         }
+          .video-container {
+          
+          margin-bottom: 20px;
+        }
+          .video-controls {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-top: 10px;
+          
+        }
+        .video-controls button {       
+          font-size: 1rem;
+          border: none; 
+          cursor: pointer;
+          background: none;    
+        }
+        
+        .video-controls input[type="range"] {
+          width: 100%;
+        }
         .client-video {
           max-width: 50vw;
-          max-height: 33vh;
+          max-height: 45vh;
           width: auto;
           height: auto;
+          margin: 0 auto;
           display: block;
           border-radius: 20px;
         }
         .annotation-media {
   flex: 0 0 auto;
-  max-width: 50vw;   /* slightly smaller width */
+  max-width: 60vw;   /* slightly smaller width */
   max-height: 40vh;  /* increased height for a vertical rectangle */
-  margin-left: 10px;
+  
 }
 
 .annotation-media img {
@@ -229,7 +339,7 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
           font-size: 1rem;
         }
         .annotation-list {
-          margin-top: 20px;
+          
         }
         .annotation-list ul {
           list-style: none;
@@ -242,8 +352,7 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
     margin-bottom: 5px;
     cursor: pointer;
     background: #1273EB;
-    display: flex
-;
+    display: flex;
     flex-direction: row;
     gap: 5px;
     align-items: center;

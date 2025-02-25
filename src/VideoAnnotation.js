@@ -122,28 +122,34 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
   };
 
   const toggleFullScreen = () => {
-    if (!document.fullscreenElement) {
-      if (videoRef.current.requestFullscreen) {
-        videoRef.current.requestFullscreen();
-      } else if (videoRef.current.webkitRequestFullscreen) {
-        videoRef.current.webkitRequestFullscreen();
-      } else if (videoRef.current.mozRequestFullScreen) {
-        videoRef.current.mozRequestFullScreen();
-      } else if (videoRef.current.msRequestFullscreen) {
-        videoRef.current.msRequestFullscreen();
-      }
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
-      } else if (document.mozCancelFullScreen) {
-        document.mozCancelFullScreen();
-      } else if (document.msExitFullscreen) {
-        document.msExitFullscreen();
+    if (videoRef.current) {
+      // For iOS Safari, use webkitEnterFullscreen if available.
+      if (videoRef.current.webkitEnterFullscreen) {
+        videoRef.current.webkitEnterFullscreen();
+      } else if (!document.fullscreenElement) {
+        if (videoRef.current.requestFullscreen) {
+          videoRef.current.requestFullscreen();
+        } else if (videoRef.current.webkitRequestFullscreen) {
+          videoRef.current.webkitRequestFullscreen();
+        } else if (videoRef.current.mozRequestFullScreen) {
+          videoRef.current.mozRequestFullScreen();
+        } else if (videoRef.current.msRequestFullscreen) {
+          videoRef.current.msRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        } else if (document.mozCancelFullScreen) {
+          document.mozCancelFullScreen();
+        } else if (document.msExitFullscreen) {
+          document.msExitFullscreen();
+        }
       }
     }
   };
+  
 
   // Sort annotations by timestamp ascending.
   const sortedAnnotations = [...annotations].sort((a, b) => a.timestamp - b.timestamp);
@@ -180,7 +186,7 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
                   }
                 }}
               >
-                {isPlaying ? "⏸" : "▶️"}
+                {isPlaying ? "⏸" : "▶"}
               </button>
 
               {hasPlayed && (
@@ -240,8 +246,11 @@ export default function VideoAnnotation({ clientVideo, annotations, setAnnotatio
             {sortedAnnotations.map((ann, index) => (
               <li key={index} onClick={() => handleAnnotationClick(index)}>
                 <div className="annotation-content">
-                  <strong>{ann.timestamp.toFixed(2)}s</strong>
+                  <div className="annotation-header">
                   <strong>{ann.title}</strong>
+                  <strong>{ann.timestamp.toFixed(2)}s</strong>
+                  </div>
+                 
                   <p>{ann.note}</p>
                   {ann.media && (
                     <div className="attached-media">
@@ -388,7 +397,7 @@ margin-bottom: 5px;
           background: #0070f3;
           color: #fff;
           border: none;
-          border-radius: 6px;
+          border-radius: 12px;
           cursor: pointer;
           transition: background-color 0.3s;
           align-self: flex-start;
@@ -421,7 +430,6 @@ margin-bottom: 5px;
           border: 1px solid #eee;
           border-radius: 6px;
           margin-bottom: 10px;
-          background: #f9f9f9;
           cursor: pointer;
           transition: background-color 0.3s;
         }
@@ -433,10 +441,15 @@ margin-bottom: 5px;
           flex-direction: column;
           gap: 8px;
         }
+        .annotation-header {
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+        }
         .annotation-actions {
           display: flex;
-          gap: 10px;
-          margin-top: 8px;
+          gap: 8px;
+      
         }
         .annotation-actions button {
           padding: 6px 12px;
@@ -444,7 +457,7 @@ margin-bottom: 5px;
           background: #0070f3;
           color: #fff;
           border: none;
-          border-radius: 4px;
+          border-radius: 12px;
           cursor: pointer;
           transition: background-color 0.3s;
         }
