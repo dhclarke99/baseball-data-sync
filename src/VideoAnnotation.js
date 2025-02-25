@@ -374,8 +374,8 @@ useEffect(() => {
           margin-bottom: 20px;
         }
         .client-video {
-          max-width: 50vw;
-          max-height: 45vh;
+           max-width: 60vw;
+          max-height: 50vh;
           width: auto;
           height: auto;
           margin: 0 auto;
