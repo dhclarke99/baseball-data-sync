@@ -1,5 +1,5 @@
 'use client';
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 
 export default function ClientView({ clientVideo, setClientVideo, annotations }) {
   const videoRef = useRef(null);
@@ -7,18 +7,41 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
   const videoContainerRef = useRef(null); // for scrolling into view
   const [selectedAnnotation, setSelectedAnnotation] = useState(null);
   const [videoPoster, setVideoPoster] = useState(null);
-   const [isPlaying, setIsPlaying] = useState(false);
-    const [hasPlayed, setHasPlayed] = useState(false);
-      const [progress, setProgress] = useState(0);
-      const [duration, setDuration] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [hasPlayed, setHasPlayed] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [uploadTimestamp, setUploadTimestamp] = useState(null);
+
+  const formatTimestamp = (timestamp) => {
+    const date = new Date(timestamp);
+    const optionsDate = { month: 'short', day: 'numeric', year: 'numeric' };
+    const optionsTime = { hour: 'numeric', minute: '2-digit' };
+    const formattedDate = date.toLocaleDateString('en-US', optionsDate);
+    const formattedTime = date.toLocaleTimeString('en-US', optionsTime);
+    return `${formattedDate} - ${formattedTime}`;
+  };
+
+
+  useEffect(() => {
+    const storedTimestamp = localStorage.getItem('uploadTimestamp');
+    if (storedTimestamp) {
+      setUploadTimestamp(new Date(storedTimestamp));
+    }
+  }, []);
 
   const handleVideoSubmit = (e) => {
     if (e.target.files.length > 0) {
       const file = e.target.files[0];
       const url = URL.createObjectURL(file);
       setClientVideo(url);
+      const now = new Date();
+      setUploadTimestamp(now);
+      localStorage.setItem('uploadTimestamp', now.toISOString());
     }
   };
+
+
 
   const captureFrame = () => {
     if (videoRef.current && canvasRef.current) {
@@ -33,18 +56,17 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
   };
 
   const handleLoadedData = () => {
-    setTimeout(() => {
-      if (videoRef.current) {
-        videoRef.current.currentTime = 2;
-      }
-    }, 500);
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0.1;  // seek to 1 second
+    }
   };
-
+  
   const handleSeeked = () => {
-    setTimeout(() => {
-      captureFrame();
-    }, 200);
+    captureFrame();
+    videoRef.current.pause();
   };
+  
+
 
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
@@ -94,7 +116,7 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
       }
     }
   };
-  
+
 
   const handleAnnotationClick = (index) => {
     const sortedAnnotations = [...annotations].sort((a, b) => a.timestamp - b.timestamp);
@@ -148,49 +170,57 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
         <>
           <div className="video-media-container" ref={videoContainerRef}>
             <div className="video-container">
-            <video
-              ref={videoRef}
-              controls={false}
-              playsInline
-              webkit-playsinline="true"
-              muted
-              className="client-video"
-              poster={videoPoster}
-              onLoadedData={handleLoadedData}
-              onSeeked={handleSeeked}
-              onLoadedMetadata={handleLoadedMetadata}
-              onTimeUpdate={handleTimeUpdate}
-              onPlay={() => { setIsPlaying(true); setHasPlayed(true); }}
-              onPause={() => setIsPlaying(false)}
-            >
-              <source src={clientVideo} type="video/mp4" />
-              Your browser does not support HTML5 video.
-            </video>
-            <div className="video-controls">
-              <button
-                onClick={() => {
-                  if (videoRef.current.paused) {
-                    videoRef.current.play();
-                  } else {
-                    videoRef.current.pause();
-                  }
-                }}
+              <video
+                ref={videoRef}
+                controls={false}
+                autoPlay
+                preload="auto"
+                playsInline
+                webkit-playsinline="true"
+                muted
+                className="client-video"
+                poster={videoPoster}
+                onLoadedData={handleLoadedData}
+                onSeeked={handleSeeked}
+                onLoadedMetadata={handleLoadedMetadata}
+                onTimeUpdate={handleTimeUpdate}
+                onPlay={() => { setIsPlaying(true); setHasPlayed(true); }}
+                onPause={() => setIsPlaying(false)}
               >
-                {isPlaying ? "⏸" : "▶"}
-              </button>
+                <source src={clientVideo} type="video/mp4" />
+                Your browser does not support HTML5 video.
+              </video>
 
-              {hasPlayed && (
-                <input
-                  type="range"
-                  min="0"
-                  max={duration}
-                  step="0.1"
-                  value={progress}
-                  onInput={handleProgressChange}
-                  onChange={handleProgressChange}
-                />
+              {uploadTimestamp && (
+                <div className="upload-timestamp">
+                  {formatTimestamp(uploadTimestamp)}
+                </div>
               )}
-              <button onClick={toggleFullScreen}>⛶</button>
+              <div className="video-controls">
+                <button
+                  onClick={() => {
+                    if (videoRef.current.paused) {
+                      videoRef.current.play();
+                    } else {
+                      videoRef.current.pause();
+                    }
+                  }}
+                >
+                  {isPlaying ? "⏸" : "▶"}
+                </button>
+
+                {hasPlayed && (
+                  <input
+                    type="range"
+                    min="0"
+                    max={duration}
+                    step="0.1"
+                    value={progress}
+                    onInput={handleProgressChange}
+                    onChange={handleProgressChange}
+                  />
+                )}
+                <button onClick={toggleFullScreen}>⛶</button>
               </div>
             </div>
             {/* If an annotation is selected and has attached media, show it to the right */}
@@ -290,6 +320,13 @@ export default function ClientView({ clientVideo, setClientVideo, annotations })
           
           margin-bottom: 20px;
         }
+          .upload-timestamp {
+  font-size: 0.8rem;
+  color: #9e9898;
+  text-align: center;
+  margin: 5px 0;
+
+}
           .video-controls {
           display: flex;
           align-items: center;
