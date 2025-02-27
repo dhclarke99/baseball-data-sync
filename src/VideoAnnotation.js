@@ -1,7 +1,9 @@
 'use client';
 import React, { useRef, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function VideoAnnotation({ clientVideo, annotations, setAnnotations }) {
+  const navigate = useNavigate();
   const videoRef = useRef(null);
   const canvasRef = useRef(null); // For capturing a poster image
   const fileInputRef = useRef(null);
@@ -197,6 +199,8 @@ useEffect(() => {
       <div className="new-annotation">
         {clientVideo ? (
           <div className="video-container" ref={videoContainerRef}>
+            <button onClick={() => navigate('/Draw')}>Draw</button>
+
            <video
   ref={videoRef}
   controls={false} // using custom controls
