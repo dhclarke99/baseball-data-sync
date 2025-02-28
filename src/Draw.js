@@ -10,10 +10,16 @@ export default function Draw({ clientVideo }) {
   const [drawingEnabled, setDrawingEnabled] = useState(false);
   const [showDrawingOptions, setShowDrawingOptions] = useState(false);
   const [drawing, setDrawing] = useState(false);
-  const [lastPoint, setLastPoint] = useState({ x: 0, y: 0 });
   const [isPlaying, setIsPlaying] = useState(false);
   const [drawingMode, setDrawingMode] = useState("free"); // "free" or "straight"
-  const snapshotRef = useRef(null); // For straight-line drawing
+
+  // State for video timeline
+  const [videoTime, setVideoTime] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(0);
+
+  // Refs to store drawn segments and the segment in progress
+  const segmentsRef = useRef([]); // Array of completed segments
+  const currentSegmentRef = useRef(null); // Current segment being drawn
 
   // On mount, attempt to request fullscreen for the video
   useEffect(() => {
@@ -32,6 +38,8 @@ export default function Draw({ clientVideo }) {
         const { clientWidth, clientHeight } = videoRef.current;
         canvasRef.current.width = clientWidth;
         canvasRef.current.height = clientHeight;
+        // Redraw the segments when the canvas size changes
+        redrawCanvas();
       }
     };
     resizeCanvas();
@@ -54,62 +62,104 @@ export default function Draw({ clientVideo }) {
     };
   };
 
+  // Redraw the canvas from saved segments and the current in-progress segment
+  const redrawCanvas = () => {
+    if (!canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 3;
+
+    // Draw all completed segments
+    segmentsRef.current.forEach(segment => {
+      ctx.beginPath();
+      if (segment.mode === "free") {
+        segment.points.forEach((pt, index) => {
+          if (index === 0) {
+            ctx.moveTo(pt.x, pt.y);
+          } else {
+            ctx.lineTo(pt.x, pt.y);
+          }
+        });
+      } else if (segment.mode === "straight" && segment.points.length === 2) {
+        ctx.moveTo(segment.points[0].x, segment.points[0].y);
+        ctx.lineTo(segment.points[1].x, segment.points[1].y);
+      }
+      ctx.stroke();
+    });
+
+    // Draw the current segment (if any) for live preview
+    if (currentSegmentRef.current) {
+      ctx.beginPath();
+      if (currentSegmentRef.current.mode === "free") {
+        currentSegmentRef.current.points.forEach((pt, index) => {
+          if (index === 0) {
+            ctx.moveTo(pt.x, pt.y);
+          } else {
+            ctx.lineTo(pt.x, pt.y);
+          }
+        });
+      } else if (currentSegmentRef.current.mode === "straight" && currentSegmentRef.current.points.length === 2) {
+        ctx.moveTo(currentSegmentRef.current.points[0].x, currentSegmentRef.current.points[0].y);
+        ctx.lineTo(currentSegmentRef.current.points[1].x, currentSegmentRef.current.points[1].y);
+      }
+      ctx.stroke();
+    }
+  };
+
   const startDrawing = (e) => {
     if (!drawingEnabled) return;
     e.preventDefault();
     const pos = getEventPos(e);
-    setLastPoint(pos);
     setDrawing(true);
-    if (drawingMode === "straight" && canvasRef.current) {
-      // Save current canvas content for previewing a straight line
-      snapshotRef.current = canvasRef.current.toDataURL();
-    }
+    // Start a new segment with the initial point
+    currentSegmentRef.current = { mode: drawingMode, points: [pos] };
   };
 
   const draw = (e) => {
     if (!drawing || !drawingEnabled) return;
     e.preventDefault();
     const pos = getEventPos(e);
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
+    if (!currentSegmentRef.current) return;
+
     if (drawingMode === "free") {
-      // Free form drawing
-      ctx.strokeStyle = 'red';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(lastPoint.x, lastPoint.y);
-      ctx.lineTo(pos.x, pos.y);
-      ctx.stroke();
-      setLastPoint(pos);
+      // For free drawing, add the new point to the current segment
+      currentSegmentRef.current.points.push(pos);
     } else if (drawingMode === "straight") {
-      // Straight line drawing: restore snapshot and draw line from starting point to current position
-      const img = new Image();
-      img.src = snapshotRef.current;
-      img.onload = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = 'red';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(lastPoint.x, lastPoint.y);
-        ctx.lineTo(pos.x, pos.y);
-        ctx.stroke();
-      };
+      // For straight mode, update or add the second point for preview
+      if (currentSegmentRef.current.points.length === 1) {
+        currentSegmentRef.current.points.push(pos);
+      } else {
+        currentSegmentRef.current.points[1] = pos;
+      }
     }
+    redrawCanvas();
   };
 
   const stopDrawing = (e) => {
     if (drawingEnabled) {
       e.preventDefault();
       setDrawing(false);
+      if (currentSegmentRef.current) {
+        // For straight mode, ensure we have a complete segment (start and end)
+        if (drawingMode === "straight" && currentSegmentRef.current.points.length < 2) {
+          currentSegmentRef.current = null;
+        } else {
+          // Save the completed segment
+          segmentsRef.current.push(currentSegmentRef.current);
+          currentSegmentRef.current = null;
+        }
+        redrawCanvas();
+      }
     }
   };
 
-  // Clear the canvas (erase drawings)
-  const clearCanvas = () => {
-    if (canvasRef.current) {
-      const ctx = canvasRef.current.getContext("2d");
-      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+  // Undo the most recent drawn segment
+  const undoLastSegment = () => {
+    if (segmentsRef.current.length > 0) {
+      segmentsRef.current.pop();
+      redrawCanvas();
     }
   };
 
@@ -140,6 +190,16 @@ export default function Draw({ clientVideo }) {
           preload="auto"
           playsInline
           muted
+          onLoadedMetadata={() => {
+            if (videoRef.current) {
+              setVideoDuration(videoRef.current.duration);
+            }
+          }}
+          onTimeUpdate={() => {
+            if (videoRef.current) {
+              setVideoTime(videoRef.current.currentTime);
+            }
+          }}
           style={{
             display: 'block',
             maxWidth: '100%',
@@ -171,7 +231,7 @@ export default function Draw({ clientVideo }) {
           onTouchMove={draw}
           onTouchEnd={stopDrawing}
         />
-        {/* Overlay for pencil and clear icons */}
+        {/* Overlay for pencil and trash can icons */}
         <div style={{
           position: 'absolute',
           top: '10px',
@@ -245,9 +305,9 @@ export default function Draw({ clientVideo }) {
               </button>
             </div>
           )}
-          {/* Trash Can Icon for Clearing Drawings */}
+          {/* Trash Can Icon for Undoing the Last Segment */}
           <button
-            onClick={(e) => { e.stopPropagation(); clearCanvas(); }}
+            onClick={(e) => { e.stopPropagation(); undoLastSegment(); }}
             style={{
               background: 'rgba(0,0,0,0.5)',
               border: 'none',
@@ -261,10 +321,34 @@ export default function Draw({ clientVideo }) {
             🗑️
           </button>
         </div>
-        {/* Play/Pause Button at Bottom Center */}
+        {/* Slider for Video Navigation */}
         <div style={{
           position: 'absolute',
           bottom: '10px',
+          left: '10px',
+          right: '10px',
+          zIndex: 2
+        }}>
+          <input
+            type="range"
+            min="0"
+            max={videoDuration}
+            step="0.1"
+            value={videoTime}
+            onChange={(e) => {
+              const newTime = parseFloat(e.target.value);
+              if (videoRef.current) {
+                videoRef.current.currentTime = newTime;
+              }
+              setVideoTime(newTime);
+            }}
+            style={{ width: '100%' }}
+          />
+        </div>
+        {/* Play/Pause Button at Bottom Center */}
+        <div style={{
+          position: 'absolute',
+          bottom: '40px',
           left: '50%',
           transform: 'translateX(-50%)'
         }}>
