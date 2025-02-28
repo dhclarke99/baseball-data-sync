@@ -13,18 +13,23 @@ export default function Draw({ clientVideo }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [drawingMode, setDrawingMode] = useState("free");
 
-  // State for controlling UI visibility during drawing (for unobstructed view)
+  // UI visibility during drawing
   const [showUI, setShowUI] = useState(true);
 
-  // State for video timeline
+  // Video timeline state
   const [videoTime, setVideoTime] = useState(0);
   const [videoDuration, setVideoDuration] = useState(0);
 
-  // Refs to store drawn segments and the segment in progress
+  // Refs to store drawn segments and in-progress segment
   const segmentsRef = useRef([]); // Completed segments
   const currentSegmentRef = useRef(null); // In-progress segment
 
-  // On mount, attempt to request fullscreen for the video
+  // Recording state and ref
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedVideo, setRecordedVideo] = useState(null);
+  const mediaRecorderRef = useRef(null);
+
+  // On mount, request fullscreen for the video
   useEffect(() => {
     if (videoRef.current && clientVideo) {
       const vid = videoRef.current;
@@ -34,7 +39,7 @@ export default function Draw({ clientVideo }) {
     }
   }, [clientVideo]);
 
-  // Resize canvas to match video size
+  // Resize the canvas to match video size
   useEffect(() => {
     const resizeCanvas = () => {
       if (videoRef.current && canvasRef.current) {
@@ -49,7 +54,7 @@ export default function Draw({ clientVideo }) {
     return () => window.removeEventListener('resize', resizeCanvas);
   }, []);
 
-  // Utility: Get pointer coordinates (supports touch and mouse)
+  // Get pointer coordinates (supports touch and mouse)
   const getEventPos = (e) => {
     const rect = canvasRef.current.getBoundingClientRect();
     if (e.touches && e.touches.length > 0) {
@@ -64,7 +69,7 @@ export default function Draw({ clientVideo }) {
     };
   };
 
-  // Function to draw an individual segment based on its mode
+  // Draw an individual segment based on its mode
   const drawSegment = (segment) => {
     const ctx = canvasRef.current.getContext("2d");
     if (segment.mode === "free") {
@@ -79,7 +84,7 @@ export default function Draw({ clientVideo }) {
         ctx.moveTo(segment.points[0].x, segment.points[0].y);
         ctx.lineTo(segment.points[1].x, segment.points[1].y);
         ctx.stroke();
-        // Calculate and display angle label
+        // Calculate and display the angle
         const start = segment.points[0];
         const end = segment.points[1];
         const deltaX = end.x - start.x;
@@ -92,7 +97,6 @@ export default function Draw({ clientVideo }) {
       }
     } else if (segment.mode === "arrow") {
       if (segment.points.length >= 2) {
-        // Draw the line
         ctx.beginPath();
         ctx.moveTo(segment.points[0].x, segment.points[0].y);
         ctx.lineTo(segment.points[1].x, segment.points[1].y);
@@ -137,26 +141,21 @@ export default function Draw({ clientVideo }) {
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     ctx.strokeStyle = 'red';
     ctx.lineWidth = 3;
-
-    // Draw completed segments
     segmentsRef.current.forEach(segment => {
       drawSegment(segment);
     });
-
-    // Draw the current segment if it exists
     if (currentSegmentRef.current) {
       drawSegment(currentSegmentRef.current);
     }
   };
 
-  // When drawing starts, hide UI for unobstructed view
+  // Drawing event handlers
   const startDrawing = (e) => {
     if (!drawingEnabled) return;
     e.preventDefault();
     const pos = getEventPos(e);
     setDrawing(true);
     setShowUI(false);
-    // Start a new segment with the initial point
     currentSegmentRef.current = { mode: drawingMode, points: [pos] };
   };
 
@@ -165,7 +164,6 @@ export default function Draw({ clientVideo }) {
     e.preventDefault();
     const pos = getEventPos(e);
     if (!currentSegmentRef.current) return;
-    // For free mode, add every point; for others, update the second point
     if (drawingMode === "free") {
       currentSegmentRef.current.points.push(pos);
     } else {
@@ -178,13 +176,11 @@ export default function Draw({ clientVideo }) {
     redrawCanvas();
   };
 
-  // When drawing stops, restore UI and finalize the segment
   const stopDrawing = (e) => {
     if (drawingEnabled) {
       e.preventDefault();
       setDrawing(false);
       if (currentSegmentRef.current) {
-        // For modes other than free, ensure there is a second point
         if (drawingMode !== "free" && currentSegmentRef.current.points.length < 2) {
           currentSegmentRef.current = null;
         } else {
@@ -215,9 +211,52 @@ export default function Draw({ clientVideo }) {
     }
   };
 
+  // Voice-over recording functions
+  const startRecording = async () => {
+    try {
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const combinedStream = new MediaStream([
+        ...screenStream.getVideoTracks(),
+        ...audioStream.getAudioTracks()
+      ]);
+      const options = { mimeType: 'video/webm' };
+      const mediaRecorder = new MediaRecorder(combinedStream, options);
+      mediaRecorderRef.current = mediaRecorder;
+      let chunks = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          chunks.push(e.data);
+        }
+      };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        setRecordedVideo(blob);
+      };
+      setIsRecording(true);
+      mediaRecorder.start();
+    } catch (err) {
+      console.error("Error starting recording:", err);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  // Save recording and navigate to VideoAnnotation.js screen
+  const saveRecording = () => {
+    if (recordedVideo) {
+      navigate('/video-annotation', { state: { recordedVideo } });
+    }
+  };
+
   return (
     <div style={{ padding: '20px' }}>
-      {/* Back Button remains visible */}
+      {/* Back Button */}
       <button onClick={() => navigate('/')} style={{ marginBottom: '10px' }}>
         Back
       </button>
@@ -273,7 +312,27 @@ export default function Draw({ clientVideo }) {
         />
         {showUI && (
           <>
-            {/* Overlay for drawing options and controls */}
+            {/* Recording Controls (Top Left) */}
+            <div style={{
+              position: 'absolute',
+              top: '10px',
+              left: '10px',
+              zIndex: 3,
+              display: 'flex',
+              gap: '10px'
+            }}>
+              {!isRecording && (
+                <button onClick={startRecording} style={{ padding: '5px 10px' }}>
+                  Start Recording
+                </button>
+              )}
+              {isRecording && (
+                <button onClick={stopRecording} style={{ padding: '5px 10px' }}>
+                  Stop Recording
+                </button>
+              )}
+            </div>
+            {/* Overlay for Drawing Options */}
             <div style={{
               position: 'absolute',
               top: '10px',
@@ -309,72 +368,60 @@ export default function Draw({ clientVideo }) {
                   flexDirection: 'column',
                   gap: '5px'
                 }}>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDrawingMode("free");
-                      setDrawingEnabled(true);
-                      setShowDrawingOptions(false);
-                    }}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: '#fff',
-                      fontSize: '1.2rem',
-                      cursor: 'pointer'
-                    }}
-                  >
+                  <button onClick={(e) => {
+                    e.stopPropagation();
+                    setDrawingMode("free");
+                    setDrawingEnabled(true);
+                    setShowDrawingOptions(false);
+                  }} style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#fff',
+                    fontSize: '1.2rem',
+                    cursor: 'pointer'
+                  }}>
                     ✍️
                   </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDrawingMode("straight");
-                      setDrawingEnabled(true);
-                      setShowDrawingOptions(false);
-                    }}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: '#fff',
-                      fontSize: '1.2rem',
-                      cursor: 'pointer'
-                    }}
-                  >
+                  <button onClick={(e) => {
+                    e.stopPropagation();
+                    setDrawingMode("straight");
+                    setDrawingEnabled(true);
+                    setShowDrawingOptions(false);
+                  }} style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#fff',
+                    fontSize: '1.2rem',
+                    cursor: 'pointer'
+                  }}>
                     📏
                   </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDrawingMode("arrow");
-                      setDrawingEnabled(true);
-                      setShowDrawingOptions(false);
-                    }}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: '#fff',
-                      fontSize: '1.2rem',
-                      cursor: 'pointer'
-                    }}
-                  >
+                  <button onClick={(e) => {
+                    e.stopPropagation();
+                    setDrawingMode("arrow");
+                    setDrawingEnabled(true);
+                    setShowDrawingOptions(false);
+                  }} style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#fff',
+                    fontSize: '1.2rem',
+                    cursor: 'pointer'
+                  }}>
                     ➡️
                   </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDrawingMode("circle");
-                      setDrawingEnabled(true);
-                      setShowDrawingOptions(false);
-                    }}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: '#fff',
-                      fontSize: '1.2rem',
-                      cursor: 'pointer'
-                    }}
-                  >
+                  <button onClick={(e) => {
+                    e.stopPropagation();
+                    setDrawingMode("circle");
+                    setDrawingEnabled(true);
+                    setShowDrawingOptions(false);
+                  }} style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#fff',
+                    fontSize: '1.2rem',
+                    cursor: 'pointer'
+                  }}>
                     ⭕
                   </button>
                 </div>
@@ -394,7 +441,7 @@ export default function Draw({ clientVideo }) {
                 🗑️
               </button>
             </div>
-            {/* Slider for video navigation */}
+            {/* Slider for Video Navigation */}
             <div style={{
               position: 'absolute',
               bottom: '10px',
@@ -443,6 +490,37 @@ export default function Draw({ clientVideo }) {
           </>
         )}
       </div>
+      {/* Video Preview Modal */}
+      {recordedVideo && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          zIndex: 1000,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center'
+        }}>
+          <video 
+            controls 
+            autoPlay 
+            src={URL.createObjectURL(recordedVideo)} 
+            style={{ maxWidth: '90%', maxHeight: '70%' }} 
+          />
+          <div style={{ marginTop: '20px' }}>
+            <button onClick={saveRecording} style={{ padding: '5px 10px', marginRight: '10px' }}>
+              Save Recording
+            </button>
+            <button onClick={() => setRecordedVideo(null)} style={{ padding: '5px 10px' }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
